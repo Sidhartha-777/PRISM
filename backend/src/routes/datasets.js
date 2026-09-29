@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { getDb, saveDb } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
+const { notifyAdminsOfSubmission } = require('../middleware/notifications');
 const router = express.Router();
 
 function parseRows(results) {
@@ -66,6 +67,7 @@ router.post('/', authenticate, authorize('ADMIN','EDITOR'), async (req, res, nex
       db.run('INSERT INTO pending_changes (id, entity_type, entity_id, action, payload, status, submitted_by) VALUES (?,?,?,?,?,?,?)',
         [pendingId, 'dataset', null, 'CREATE', payload, 'PENDING', req.user.id]);
       saveDb();
+      await notifyAdminsOfSubmission({ fromUserId: req.user.id, fromUserName: req.user.name, entityType: 'dataset', action: 'CREATE' });
       return res.status(201).json({ pending_id: pendingId, message: 'Submitted for admin approval.' });
     }
 
@@ -88,6 +90,7 @@ router.put('/:id', authenticate, authorize('ADMIN','EDITOR'), async (req, res, n
       db.run('INSERT INTO pending_changes (id, entity_type, entity_id, action, payload, status, submitted_by) VALUES (?,?,?,?,?,?,?)',
         [pendingId, 'dataset', req.params.id, 'UPDATE', payload, 'PENDING', req.user.id]);
       saveDb();
+      await notifyAdminsOfSubmission({ fromUserId: req.user.id, fromUserName: req.user.name, entityType: 'dataset', action: 'UPDATE' });
       return res.json({ pending_id: pendingId, message: 'Changes submitted for admin approval.' });
     }
 
@@ -106,7 +109,10 @@ router.put('/:id', authenticate, authorize('ADMIN','EDITOR'), async (req, res, n
 router.get('/admin/all', authenticate, authorize('ADMIN','EDITOR'), async (req, res, next) => {
   try {
     const db = await getDb();
-    const rows = db.exec('SELECT d.*, e.title as expedition_title FROM datasets d LEFT JOIN expeditions e ON d.expedition_id = e.id ORDER BY d.created_at DESC');
+    let q = 'SELECT d.*, e.title as expedition_title FROM datasets d LEFT JOIN expeditions e ON d.expedition_id = e.id';
+    if (req.user.role !== 'ADMIN') q += " WHERE d.status != 'ARCHIVED'";
+    q += ' ORDER BY d.created_at DESC';
+    const rows = db.exec(q);
     res.json({ datasets: parseRows(rows) });
   } catch (err) { next(err); }
 });

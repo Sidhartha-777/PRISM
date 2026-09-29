@@ -13,11 +13,12 @@ async function seed() {
 
   // Clear existing data
   const tables = [
-    'pending_changes', 'audit_log', 'dataset_download_log', 'scheduled_posts', 'generated_content',
+    'notifications', 'pending_changes', 'audit_log', 'dataset_download_log', 'scheduled_posts', 'generated_content',
     'question_submissions', 'glossary_terms', 'education_resources', 'events',
     'news_articles', 'media_tags', 'tags', 'media_items', 'albums',
     'expedition_members', 'publications', 'datasets', 'expeditions', 'stations', 'users'
   ];
+
   tables.forEach(t => db.run(`DELETE FROM ${t}`));
 
   // ─── USERS ───────────────────────────────────────────────
@@ -373,6 +374,106 @@ async function seed() {
       [uuidv4(), null, `192.168.1.${100 + i}`, 1]);
   }
 
+  // ─── DEMO PENDING CHANGES (Editor submissions awaiting approval) ─────
+  const pendingChanges = [
+    {
+      id: uuidv4(), entity_type: 'expedition', entity_id: null, action: 'CREATE',
+      payload: JSON.stringify({
+        title: '45th Indian Scientific Expedition to Antarctica (ISEA-45)',
+        slug: '45th-isea',
+        summary: 'The 45th Indian expedition to Antarctica focusing on climate variability studies and biological surveys around Bharati station.',
+        region: 'ANTARCTIC',
+        year: 2026,
+        start_date: '2026-11-15',
+        end_date: '2027-04-30',
+        expedition_status: 'PLANNED',
+        objectives: 'Study ice sheet dynamics, monitor atmospheric changes, conduct biodiversity surveys in the Larsemann Hills region.',
+      }),
+      status: 'PENDING', submitted_by: users.editor,
+    },
+    {
+      id: uuidv4(), entity_type: 'dataset', entity_id: null, action: 'CREATE',
+      payload: JSON.stringify({
+        title: 'Arctic Permafrost Temperature Profiles 2025',
+        slug: 'arctic-permafrost-temp-2025',
+        description: 'High-resolution permafrost temperature monitoring data from boreholes near Himadri station, Ny-Ålesund, Svalbard. Includes continuous temperature readings at depths from 0.5m to 25m.',
+        discipline: 'Glaciology',
+        parameters: 'Temperature, Depth, Soil moisture',
+        spatial_coverage: '78.9°N, 11.9°E (Ny-Ålesund)',
+        format: 'CSV',
+        access_level: 'PUBLIC',
+        licence: 'CC-BY-4.0',
+        contact_name: 'Dr. Thamban Meloth',
+        contact_email: 'thamban@ncpor.gov.in',
+      }),
+      status: 'PENDING', submitted_by: users.editor,
+    },
+    {
+      id: uuidv4(), entity_type: 'publication', entity_id: null, action: 'CREATE',
+      payload: JSON.stringify({
+        title: 'Decadal Changes in Antarctic Sea Ice Extent and Its Impact on Coastal Ecosystems',
+        slug: 'decadal-antarctic-sea-ice',
+        authors: 'Dr. Thamban Meloth, Dr. Rahul Mohan, Dr. Anoop Mahajan',
+        journal: 'Polar Science',
+        year: 2026,
+        pub_type: 'PAPER',
+        abstract: 'This study analyses decade-long satellite observations of Antarctic sea ice extent and correlates changes with biodiversity surveys conducted during Indian expeditions.',
+        doi: '10.1016/j.polar.2026.100XXX',
+        keywords: 'sea ice, Antarctica, ecosystems, climate change, biodiversity',
+      }),
+      status: 'PENDING', submitted_by: users.contributor1,
+    },
+    {
+      id: uuidv4(), entity_type: 'news', entity_id: null, action: 'CREATE',
+      payload: JSON.stringify({
+        title: 'NCPOR Scientists Discover New Mineral Species in Antarctic Rock Samples',
+        slug: 'new-mineral-species-antarctica',
+        summary: 'A team of NCPOR researchers has identified a previously unknown mineral species in rock samples collected during the 43rd Indian Antarctic Expedition.',
+        body: 'Scientists at the National Centre for Polar and Ocean Research (NCPOR) have made a groundbreaking discovery...',
+        publish_date: '2026-09-28',
+      }),
+      status: 'PENDING', submitted_by: users.outreach,
+    },
+  ];
+
+  pendingChanges.forEach(pc => {
+    db.run('INSERT INTO pending_changes (id, entity_type, entity_id, action, payload, status, submitted_by) VALUES (?,?,?,?,?,?,?)',
+      [pc.id, pc.entity_type, pc.entity_id, pc.action, pc.payload, pc.status, pc.submitted_by]);
+  });
+
+  // ─── DEMO NOTIFICATIONS ──────────────────────────────────
+  const notifList = [
+    {
+      userId: users.admin, fromUserId: users.editor, type: 'SUBMISSION',
+      title: 'New Expedition Submission',
+      message: 'Dr. Thamban Meloth has created a new Expedition and it needs your approval.',
+      entityType: 'expedition', link: '/admin/approvals',
+    },
+    {
+      userId: users.admin, fromUserId: users.editor, type: 'SUBMISSION',
+      title: 'New Dataset Submission',
+      message: 'Dr. Thamban Meloth has created a new Dataset and it needs your approval.',
+      entityType: 'dataset', link: '/admin/approvals',
+    },
+    {
+      userId: users.admin, fromUserId: users.contributor1, type: 'SUBMISSION',
+      title: 'New Publication Submission',
+      message: 'Dr. Rahul Mohan has created a new Publication and it needs your approval.',
+      entityType: 'publication', link: '/admin/approvals',
+    },
+    {
+      userId: users.admin, fromUserId: users.outreach, type: 'SUBMISSION',
+      title: 'New News Submission',
+      message: 'Priya Sharma has created a new News article and it needs your approval.',
+      entityType: 'news', link: '/admin/approvals',
+    },
+  ];
+
+  notifList.forEach(n => {
+    db.run('INSERT INTO notifications (id, user_id, from_user_id, type, title, message, entity_type, link) VALUES (?,?,?,?,?,?,?,?)',
+      [uuidv4(), n.userId, n.fromUserId, n.type, n.title, n.message, n.entityType, n.link]);
+  });
+
   saveDb();
   console.log('');
   console.log('Seed complete with comprehensive demo data:');
@@ -392,8 +493,11 @@ async function seed() {
   console.log('  Question Submissions: 3');
   console.log('  Audit Log: 6 entries');
   console.log('  Download Logs: 15');
+  console.log('  Pending Changes: 4 (from editors awaiting admin approval)');
+  console.log('  Notifications: 4 (for admin about editor submissions)');
   console.log('');
   console.log('  Login: any email above with password "password123"');
 }
 
 seed().catch(err => { console.error('Seed failed:', err); process.exit(1); });
+

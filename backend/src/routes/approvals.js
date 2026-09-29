@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { getDb, saveDb } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
+const { notifyEditorOfReview } = require('../middleware/notifications');
 const router = express.Router();
 
 function parseRows(r) { if(!r.length)return[]; const c=r[0].columns; return r[0].values.map(row=>{const o={};c.forEach((k,i)=>o[k]=row[i]);return o;}); }
@@ -139,6 +140,16 @@ router.put('/:id/approve', authenticate, authorize('ADMIN'), async (req, res, ne
       ['APPROVED', req.user.id, req.body.note || null, req.params.id]);
     saveDb();
 
+    // Notify the editor
+    await notifyEditorOfReview({
+      editorUserId: change.submitted_by,
+      reviewerUserId: req.user.id,
+      reviewerName: req.user.name,
+      entityType: change.entity_type,
+      status: 'APPROVED',
+      reviewNote: req.body.note,
+    });
+
     res.json({ message: 'Change approved and applied.' });
   } catch (err) { next(err); }
 });
@@ -153,9 +164,21 @@ router.put('/:id/reject', authenticate, authorize('ADMIN'), async (req, res, nex
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Pending change not found or already processed.' } });
     }
 
+    const change = parseRows(rows)[0];
+
     db.run('UPDATE pending_changes SET status = ?, reviewed_by = ?, review_note = ?, updated_at = datetime("now") WHERE id = ?',
       ['REJECTED', req.user.id, req.body.note || null, req.params.id]);
     saveDb();
+
+    // Notify the editor
+    await notifyEditorOfReview({
+      editorUserId: change.submitted_by,
+      reviewerUserId: req.user.id,
+      reviewerName: req.user.name,
+      entityType: change.entity_type,
+      status: 'REJECTED',
+      reviewNote: req.body.note,
+    });
 
     res.json({ message: 'Change rejected.' });
   } catch (err) { next(err); }

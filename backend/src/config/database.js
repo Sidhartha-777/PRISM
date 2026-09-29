@@ -365,7 +365,26 @@ async function getDb() {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      from_user_id TEXT REFERENCES users(id),
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      entity_type TEXT,
+      entity_id TEXT,
+      link TEXT,
+      is_read INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
   // Indexes for search and filtering
+  db.run('CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at)');
+
   db.run('CREATE INDEX IF NOT EXISTS idx_expeditions_region ON expeditions(region)');
   db.run('CREATE INDEX IF NOT EXISTS idx_expeditions_year ON expeditions(year)');
   db.run('CREATE INDEX IF NOT EXISTS idx_expeditions_status ON expeditions(status)');

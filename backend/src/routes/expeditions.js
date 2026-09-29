@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { getDb, saveDb } = require('../config/database');
 const { authenticate, authorize, optionalAuth } = require('../middleware/auth');
+const { notifyAdminsOfSubmission } = require('../middleware/notifications');
 
 const router = express.Router();
 
@@ -113,6 +114,7 @@ router.post('/', authenticate, authorize('ADMIN', 'EDITOR'), async (req, res, ne
       db.run('INSERT INTO pending_changes (id, entity_type, entity_id, action, payload, status, submitted_by) VALUES (?,?,?,?,?,?,?)',
         [pendingId, 'expedition', null, 'CREATE', payload, 'PENDING', req.user.id]);
       saveDb();
+      await notifyAdminsOfSubmission({ fromUserId: req.user.id, fromUserName: req.user.name, entityType: 'expedition', action: 'CREATE' });
       return res.status(201).json({ pending_id: pendingId, message: 'Submitted for admin approval.' });
     }
 
@@ -137,6 +139,7 @@ router.put('/:id', authenticate, authorize('ADMIN', 'EDITOR'), async (req, res, 
       db.run('INSERT INTO pending_changes (id, entity_type, entity_id, action, payload, status, submitted_by) VALUES (?,?,?,?,?,?,?)',
         [pendingId, 'expedition', req.params.id, 'UPDATE', payload, 'PENDING', req.user.id]);
       saveDb();
+      await notifyAdminsOfSubmission({ fromUserId: req.user.id, fromUserName: req.user.name, entityType: 'expedition', action: 'UPDATE' });
       return res.json({ pending_id: pendingId, message: 'Changes submitted for admin approval.' });
     }
 
@@ -160,7 +163,10 @@ router.put('/:id', authenticate, authorize('ADMIN', 'EDITOR'), async (req, res, 
 router.get('/admin/all', authenticate, authorize('ADMIN', 'EDITOR'), async (req, res, next) => {
   try {
     const db = await getDb();
-    const results = db.exec('SELECT e.*, s.name as station_name FROM expeditions e LEFT JOIN stations s ON e.station_id = s.id ORDER BY e.created_at DESC');
+    let q = 'SELECT e.*, s.name as station_name FROM expeditions e LEFT JOIN stations s ON e.station_id = s.id';
+    if (req.user.role !== 'ADMIN') q += " WHERE e.status != 'ARCHIVED'";
+    q += ' ORDER BY e.created_at DESC';
+    const results = db.exec(q);
     let expeditions = [];
     if (results.length > 0) {
       const cols = results[0].columns;

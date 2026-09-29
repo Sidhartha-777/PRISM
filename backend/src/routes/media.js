@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { getDb, saveDb } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
+const { notifyAdminsOfSubmission } = require('../middleware/notifications');
 
 const router = express.Router();
 
@@ -57,7 +58,10 @@ router.get('/:slug', async (req, res, next) => {
 router.get('/admin/all', authenticate, authorize('ADMIN','EDITOR'), async (req, res, next) => {
   try {
     const db = await getDb();
-    const rows = db.exec('SELECT m.*, a.name as album_name FROM media_items m LEFT JOIN albums a ON m.album_id = a.id ORDER BY m.created_at DESC');
+    let q = 'SELECT m.*, a.name as album_name FROM media_items m LEFT JOIN albums a ON m.album_id = a.id';
+    if (req.user.role !== 'ADMIN') q += " WHERE m.status != 'ARCHIVED'";
+    q += ' ORDER BY m.created_at DESC';
+    const rows = db.exec(q);
     res.json({ items: parseRows(rows) });
   } catch (err) { next(err); }
 });
@@ -76,6 +80,7 @@ router.post('/', authenticate, authorize('ADMIN','EDITOR'), async (req, res, nex
       db.run('INSERT INTO pending_changes (id, entity_type, entity_id, action, payload, status, submitted_by) VALUES (?,?,?,?,?,?,?)',
         [pendingId, 'media', null, 'CREATE', payload, 'PENDING', req.user.id]);
       saveDb();
+      await notifyAdminsOfSubmission({ fromUserId: req.user.id, fromUserName: req.user.name, entityType: 'media', action: 'CREATE' });
       return res.status(201).json({ pending_id: pendingId, message: 'Submitted for admin approval.' });
     }
 
@@ -98,6 +103,7 @@ router.put('/:id', authenticate, authorize('ADMIN','EDITOR'), async (req, res, n
       db.run('INSERT INTO pending_changes (id, entity_type, entity_id, action, payload, status, submitted_by) VALUES (?,?,?,?,?,?,?)',
         [pendingId, 'media', req.params.id, 'UPDATE', payload, 'PENDING', req.user.id]);
       saveDb();
+      await notifyAdminsOfSubmission({ fromUserId: req.user.id, fromUserName: req.user.name, entityType: 'media', action: 'UPDATE' });
       return res.json({ pending_id: pendingId, message: 'Changes submitted for admin approval.' });
     }
 

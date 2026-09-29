@@ -5,7 +5,6 @@ import { authApi } from '../../api/client';
 const DEMO_ACCOUNTS = [
   { email: 'admin@ncpor.gov.in', name: 'Dr. Ravichandran M.', role: 'ADMIN', label: 'Admin', desc: 'Full access — upload, edit, approve editor changes, make content public/private, manage users', color: 'bg-navy-900' },
   { email: 'editor@ncpor.gov.in', name: 'Dr. Thamban Meloth', role: 'EDITOR', label: 'Editor', desc: 'Upload and edit documents, photos, videos — changes require admin approval', color: 'bg-glacier-700' },
-  { email: 'media@ncpor.gov.in', name: 'Sanjay Kumar', role: 'MEDIA', label: 'Media / Public', desc: 'Read-only access to public content, search documents', color: 'bg-slate-500' },
 ];
 
 export default function Login() {
@@ -22,7 +21,8 @@ export default function Login() {
       const data = await authApi.login({ email: loginEmail, password: loginPassword });
       const role = data.user?.role;
       if (role === 'MEDIA') {
-        navigate('/portal');
+        // Obsolete, fallthrough
+        navigate('/admin');
       } else {
         navigate('/admin');
       }

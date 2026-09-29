@@ -21,7 +21,13 @@ import Dashboard from './pages/admin/Dashboard';
 import ContentStudio from './pages/admin/ContentStudio';
 import PendingApprovals from './pages/admin/PendingApprovals';
 import MySubmissions from './pages/admin/MySubmissions';
-import MediaPortal from './pages/admin/MediaPortal';
+import UnifiedEntry from './pages/admin/UnifiedEntry';
+import ExpeditionManager from './pages/admin/ExpeditionManager';
+import DatasetManager from './pages/admin/DatasetManager';
+import PublicationManager from './pages/admin/PublicationManager';
+import MediaManager from './pages/admin/MediaManager';
+import NewsManager from './pages/admin/NewsManager';
+import UserManager from './pages/admin/UserManager';
 
 export default function App() {
   return (
@@ -42,7 +48,6 @@ export default function App() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/search" element={<Search />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/portal" element={<MediaPortal />} />
         <Route path="/accessibility" element={<StaticPage title="Accessibility Statement" content="This portal is designed to be accessible to all users in compliance with WCAG 2.1 AA standards and GIGW 3.0 guidelines. Features include keyboard navigation, visible focus indicators, semantic HTML, text-size controls, and high-contrast colour choices. If you encounter any accessibility issues, please contact us." />} />
         <Route path="/terms" element={<StaticPage title="Terms of Use" content="This portal is maintained by the National Centre for Polar and Ocean Research (NCPOR), Ministry of Earth Sciences, Government of India. Content is provided for informational and educational purposes. Datasets are available under their respective licences as specified in their metadata. Proper citation is required when using any data or publications from this portal." />} />
         <Route path="/privacy" element={<StaticPage title="Privacy Policy" content="This portal collects minimal personal data. Download logs are stored only with consent for usage analytics. We use httpOnly cookies for authentication. No personal data is shared with third parties. This portal complies with applicable Indian data protection regulations." />} />
@@ -55,13 +60,14 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="approvals" element={<PendingApprovals />} />
         <Route path="my-submissions" element={<MySubmissions />} />
+        <Route path="new-entry" element={<UnifiedEntry />} />
         <Route path="studio" element={<ContentStudio />} />
-        <Route path="expeditions" element={<AdminPlaceholder title="Expedition Manager" />} />
-        <Route path="datasets" element={<AdminPlaceholder title="Dataset Manager" />} />
-        <Route path="publications" element={<AdminPlaceholder title="Publication Manager" />} />
-        <Route path="media" element={<AdminPlaceholder title="Media Library" />} />
-        <Route path="news" element={<AdminPlaceholder title="News Editor" />} />
-        <Route path="users" element={<AdminPlaceholder title="User Management" />} />
+        <Route path="expeditions" element={<ExpeditionManager />} />
+        <Route path="datasets" element={<DatasetManager />} />
+        <Route path="publications" element={<PublicationManager />} />
+        <Route path="media" element={<MediaManager />} />
+        <Route path="news" element={<NewsManager />} />
+        <Route path="users" element={<UserManager />} />
       </Route>
     </Routes>
   );
@@ -82,17 +88,6 @@ function StaticPage({ title, content }) {
       <h1 className="text-h1 mb-3">{title}</h1>
       <div className="bg-white rounded-card border border-line p-4">
         <p className="text-[16px] font-sans text-slate-800 leading-relaxed">{content}</p>
-      </div>
-    </div>
-  );
-}
-
-function AdminPlaceholder({ title }) {
-  return (
-    <div>
-      <h1 className="text-h1 mb-3">{title}</h1>
-      <div className="bg-white rounded-card border border-line p-4">
-        <p className="text-[14px] font-sans text-slate-800">This admin module uses the existing API endpoints. Full CRUD forms are available through the API at <span className="font-mono text-aurora-500">/api/v1/</span> routes.</p>
       </div>
     </div>
   );

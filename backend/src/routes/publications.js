@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { getDb, saveDb } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
+const { notifyAdminsOfSubmission } = require('../middleware/notifications');
 const router = express.Router();
 
 function parseRows(r) { if(!r.length)return[]; const c=r[0].columns; return r[0].values.map(row=>{const o={};c.forEach((k,i)=>o[k]=row[i]);return o;}); }
@@ -86,6 +87,7 @@ router.post('/', authenticate, authorize('ADMIN','EDITOR'), async (req, res, nex
       db.run('INSERT INTO pending_changes (id, entity_type, entity_id, action, payload, status, submitted_by) VALUES (?,?,?,?,?,?,?)',
         [pendingId, 'publication', null, 'CREATE', payload, 'PENDING', req.user.id]);
       saveDb();
+      await notifyAdminsOfSubmission({ fromUserId: req.user.id, fromUserName: req.user.name, entityType: 'publication', action: 'CREATE' });
       return res.status(201).json({ pending_id: pendingId, message: 'Submitted for admin approval.' });
     }
 
@@ -107,6 +109,7 @@ router.put('/:id', authenticate, authorize('ADMIN','EDITOR'), async (req, res, n
       db.run('INSERT INTO pending_changes (id, entity_type, entity_id, action, payload, status, submitted_by) VALUES (?,?,?,?,?,?,?)',
         [pendingId, 'publication', req.params.id, 'UPDATE', payload, 'PENDING', req.user.id]);
       saveDb();
+      await notifyAdminsOfSubmission({ fromUserId: req.user.id, fromUserName: req.user.name, entityType: 'publication', action: 'UPDATE' });
       return res.json({ pending_id: pendingId, message: 'Changes submitted for admin approval.' });
     }
 
@@ -124,7 +127,10 @@ router.put('/:id', authenticate, authorize('ADMIN','EDITOR'), async (req, res, n
 router.get('/admin/all', authenticate, authorize('ADMIN','EDITOR'), async (req, res, next) => {
   try {
     const db = await getDb();
-    const rows = db.exec('SELECT * FROM publications ORDER BY created_at DESC');
+    let q = 'SELECT * FROM publications';
+    if (req.user.role !== 'ADMIN') q += " WHERE status != 'ARCHIVED'";
+    q += ' ORDER BY created_at DESC';
+    const rows = db.exec(q);
     res.json({ publications: parseRows(rows) });
   } catch (err) { next(err); }
 });
